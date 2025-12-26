@@ -84,9 +84,9 @@ python run.py --seed_main 7
 
 ## Expected outputs
 
-### Terminal summary (report-ready)
+### Terminal summary
 
-`run.py` prints a compact summary like:
+`run.py` prints a compact summary:
 
 - **Main run (final T)**
   - exploitability (avg strategies)
@@ -99,12 +99,6 @@ python run.py --seed_main 7
 - **Rescaled tail constants (if enabled)**
   - median/IQR of `√T · ε(p̄_T, q̄_T)`
   - median/IQR of `T · ε(p̄_T^sym, q̄_T^sym)`
-
-These are the numbers you typically quote in a report to support:
-- convergence of exploitability,
-- variability across runs (equilibrium selection),
-- agreement/disagreement with Hart’s marginal target.
-
 
 ### Figures (saved to `figures/`)
 
@@ -131,9 +125,6 @@ These are the numbers you typically quote in a report to support:
    Scatter across seeds:
    - x-axis: exploitability of symmetrised averages
    - y-axis: TV distance to Hart marginal
-
-   This is the cleanest visual evidence for:  
-   **exploitability converges, but Hart-marginal agreement varies across runs (equilibrium selection variability).**
 
 6. `exploitability_rescaled_band.png`  
    Multi-seed median ± IQR band of rescaled diagnostics:
