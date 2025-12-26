@@ -1,9 +1,9 @@
 # Regret Matching for Discrete Colonel Blotto (S=5, K=3) — Hart Comparison
 
 This repository contains a small, reproducible experiment suite for **two-player zero-sum discrete Colonel Blotto** with payoff
-\[
+$$
 u(x,y)=\frac{1}{K}\sum_{k=1}^K \operatorname{sgn}(x_k-y_k)\in[-1,1],
-\]
+$$
 and a **sampled regret-matching** solver in the style of **Neller & Lanctot** (realised opponent action update).
 
 The core goal is to:
