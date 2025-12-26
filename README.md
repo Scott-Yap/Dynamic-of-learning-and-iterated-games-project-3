@@ -1,17 +1,12 @@
 # Regret Matching for Discrete Colonel Blotto (S=5, K=3) — Hart Comparison
 
-This repository contains a small, reproducible experiment suite for **two-player zero-sum discrete Colonel Blotto** with payoff
-$$
-u(x,y)=\frac{1}{K}\sum_{k=1}^K \operatorname{sgn}(x_k-y_k)\in[-1,1],
-$$
+This repository contains a small, reproducible experiment suite for **two-player zero-sum discrete Colonel Blotto**
 and a **sampled regret-matching** solver in the style of **Neller & Lanctot** (realised opponent action update).
 
 The core goal is to:
 1. Run regret matching self-play to obtain approximate equilibrium behaviour.
 2. Measure convergence via **exploitability** and **value**.
 3. Compare the learned strategy (after symmetrisation) to the **Hart target random-battlefield marginal** for the specific case \((S,K)=(5,3)\).
-
-> Important: `hart_target_marginal_B553()` is hard-coded for the \((S,K)=(5,3)\) case study. If you change `S` or `K`, the Hart-comparison plots won’t be meaningful unless you implement the corresponding Hart marginal.
 
 ---
 
@@ -53,3 +48,96 @@ The core goal is to:
 python -m venv venv
 source venv/bin/activate  # macOS/Linux
 # .\venv\Scripts\activate # Windows PowerShell
+```
+### 2) Install dependencies
+```bash
+pip install -r requirement.txt
+```
+
+## Quickstart: run the main experiment
+
+Default run (S=5, K=3, T=50000, 20 seeds for multi-seed diagnostics):
+
+```bash
+python run.py
+```
+
+Shorter run
+```bash
+python run.py --T 5000
+```
+
+Increase the number of seeds used for the multi-seed plots:
+```bash
+python run.py --T 5000 --nseeds 50
+```
+
+Use an explicit list of seeds: 
+```bash
+python run.py --T 5000 --seeds 0 1 2 3 4 5
+```
+
+Change main seed used for the single-run time-series curves:
+```bash
+python run.py --seed_main 7
+```
+
+## Expected outputs
+
+### Terminal summary (report-ready)
+
+`run.py` prints a compact summary like:
+
+- **Main run (final T)**
+  - exploitability (avg strategies)
+  - exploitability (symmetrised avg strategies)
+  - value of avg strategies
+  - TV distance to Hart marginal
+- **Across seeds (if enabled)**
+  - exploitability median + IQR + range
+  - TV median + IQR + range
+- **Rescaled tail constants (if enabled)**
+  - median/IQR of `√T · ε(p̄_T, q̄_T)`
+  - median/IQR of `T · ε(p̄_T^sym, q̄_T^sym)`
+
+These are the numbers you typically quote in a report to support:
+- convergence of exploitability,
+- variability across runs (equilibrium selection),
+- agreement/disagreement with Hart’s marginal target.
+
+
+### Figures (saved to `figures/`)
+
+#### Single-seed plots
+
+1. `exploitability_vs_T.png`  
+   Exploitability vs time for:
+   - averaged strategies `(p̄_T, q̄_T)`
+   - symmetrised averaged strategies `(p̄_T^sym, q̄_T^sym)`
+
+2. `value_vs_T.png`  
+   Value `p̄_T^T A q̄_T` across time  
+   (should approach the game value; for symmetric zero-sum instances here it is near 0).
+
+3. `tv_vs_T.png`  
+   TV distance between the learned symmetrised random-battlefield marginal and the Hart target marginal (for `(S,K)=(5,3)`).
+
+4. `marginal_bar.png`  
+   Side-by-side bar chart at final `T`: learned marginal vs Hart target marginal.
+
+#### Multi-seed plots
+
+5. `tv_vs_exploit_scatter.png`  
+   Scatter across seeds:
+   - x-axis: exploitability of symmetrised averages
+   - y-axis: TV distance to Hart marginal
+
+   This is the cleanest visual evidence for:  
+   **exploitability converges, but Hart-marginal agreement varies across runs (equilibrium selection variability).**
+
+6. `exploitability_rescaled_band.png`  
+   Multi-seed median ± IQR band of rescaled diagnostics:
+   - `√T · ε(p̄_T, q̄_T)` (expected “flat-ish” if `ε = O(1/√T)`)
+   - `T · ε(p̄_T^sym, q̄_T^sym)` (often flatter if symmetrisation improves rate empirically)
+
+
