@@ -45,7 +45,7 @@ def exploitability(p, q, A):
 
     eps_A = float(np.max(Aq) - v)
     eps_B = float(v - np.min(pTA))
-    eps = max(eps_A, eps_B)
+    eps = (eps_A + eps_B)/2.0  # average of the two
 
     return eps, eps_A, eps_B, v
 
@@ -107,7 +107,6 @@ def induced_random_battlefield_marginal(p, actions, S):
         P : length-(S+1) numpy array, sums to 1
     """
     p = np.asarray(p, dtype=float)
-    n = len(actions)
 
     K = len(actions[0])
 

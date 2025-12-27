@@ -66,6 +66,10 @@ pip install -r requirement.txt
 
 ## Quickstart: run the main experiment
 
+``bash
+cd Code 
+``
+
 Default run (S=5, K=3, T=50000, 20 seeds for multi-seed diagnostics):
 
 ```bash
@@ -92,53 +96,62 @@ Change main seed used for the single-run time-series curves:
 python run.py --seed_main 7
 ```
 
-## Expected outputs
+Disable multi-seed diagnostics
+```bash
+python run.py --nseeds 0
+```
+
+Change the game size
+```bash
+python run.py --S 6 --K 4 --T 20000
+```
+
+## Outputs
+
+All figures are saved into `Code/figures/` (or the directory passed via `--outdir`).
 
 ### Terminal summary
 
-`run.py` prints a compact summary:
+`run.py` prints a compact report:
 
-- **Main run (final T)**
-  - exploitability (avg strategies)
-  - exploitability (symmetrised avg strategies)
-  - value of avg strategies
-  - TV distance to Hart marginal
-- **Across seeds (if enabled)**
-  - exploitability median + IQR + range
-  - TV median + IQR + range
-- **Rescaled tail constants (if enabled)**
-  - median/IQR of `√T · ε(p̄_T, q̄_T)`
-  - median/IQR of `T · ε(p̄_T^sym, q̄_T^sym)`
+Single-seed (final `T`):
+- `exploitability(avg)`
+- `exploitability(sym avg)`
+- `value(avg strategies)`
+- `value(sym avg strategies)`
+- `TV(sym marginal, Hart)`
 
-### Figures (saved to `figures/`)
+Across seeds (if multi-seed enabled):
+- `exploitability(avg)`: median, IQR, range
+- `exploitability(sym avg)`: median, IQR, range
+- `TV-to-Hart (sym)`: median, IQR, range
+- the best-TV seed and its TV and exploitability
 
-#### Single-seed plots
+Rescaled diagnostics (if multi-seed enabled):
+- tail constants (median and IQR across seeds)
+- rescaled values at the last evaluation time
 
+### Figures saved
+
+Single-seed figures:
 1. `exploitability_vs_T.png`  
-   Exploitability vs time for:
-   - averaged strategies `(p̄_T, q̄_T)`
-   - symmetrised averaged strategies `(p̄_T^sym, q̄_T^sym)`
+   Exploitability over time for averaged and symmetrised averaged strategies.
 
 2. `value_vs_T.png`  
-   Value `p̄_T^T A q̄_T` across time  
-   (should approach the game value; for symmetric zero-sum instances here it is near 0).
+   Value `pbar_t^T A qbar_t` over time (also for symmetrised averages).
 
 3. `tv_vs_T.png`  
-   TV distance between the learned symmetrised random-battlefield marginal and the Hart target marginal (for `(S,K)=(5,3)`).
+   TV distance between learned symmetrised marginal and Hart target marginal over time.
 
 4. `marginal_bar.png`  
-   Side-by-side bar chart at final `T`: learned marginal vs Hart target marginal.
+   Side-by-side bar chart at final `T`: learned marginal (sym) vs Hart marginal.
 
-#### Multi-seed plots
-
+Multi-seed figures (when enabled):
 5. `tv_vs_exploit_scatter.png`  
-   Scatter across seeds:
-   - x-axis: exploitability of symmetrised averages
-   - y-axis: TV distance to Hart marginal
+   Scatter across seeds: exploitability of symmetrised averages vs TV distance to Hart.
 
 6. `exploitability_rescaled_band.png`  
-   Multi-seed median ± IQR band of rescaled diagnostics:
-   - `√T · ε(p̄_T, q̄_T)` (expected “flat-ish” if `ε = O(1/√T)`)
-   - `T · ε(p̄_T^sym, q̄_T^sym)` (often flatter if symmetrisation improves rate empirically)
+   Median and IQR band across seeds for rescaled exploitability diagnostics.
 
-
+7. `marginal_bar_best_tv.png`  
+   Bar chart for the seed with the smallest TV distance to Hart.

@@ -11,14 +11,13 @@ Figures (single main seed):
 Figures (multi-seed, if enabled):
   - tv_vs_exploit_scatter.png
   - exploitability_rescaled_band.png
-  - marginal_bar_best_tv.png
 """
 import os
 import argparse
 import numpy as np
 
 import matplotlib
-matplotlib.use("Agg")  # set backend before importing pyplot
+matplotlib.use("Agg")  # must be set before importing pyplot
 import matplotlib.pyplot as plt
 
 from game import make_game
@@ -55,34 +54,28 @@ def qstats(a):
     )
 
 
-def save_fig(outdir, filename, dpi=200):
-    """Save the current matplotlib figure and close it."""
-    plt.tight_layout()
-    plt.savefig(os.path.join(outdir, filename), dpi=dpi)
-    plt.close()
-
-
 def run_multiseed_scatter(A, actions, S, perm_classes, Q, T, seeds, outdir):
-    """Scatter across seeds: TV-to-Hart vs exploitability (symmetrised averages)."""
+    """Scatter plot across seeds: TV-to-Hart vs exploitability (symmetrised averages)."""
     n = len(actions)
     eps_avg, eps_sym, tv = [], [], []
-    P_list = []  # learned marginals per seed (symmetrised)
+    P_list = []  # NEW: store learned marginals per seed (symmetrised)
 
     for sd in seeds:
         res = regret_matching(A, T=T, seed=sd)
         p_avg, q_avg = res["p_avg"], res["q_avg"]
 
-        # exploitability of raw averages
+        # exploitability of the raw averages
         eps_avg.append(float(exploitability(p_avg, q_avg, A)[0]))
 
         # symmetrised averages (for Hart comparison)
         p_sym = symmetrise_with_classes(p_avg, perm_classes, n)
         q_sym = symmetrise_with_classes(q_avg, perm_classes, n)
+
         eps_sym.append(float(exploitability(p_sym, q_sym, A)[0]))
 
-        # induced marginal and TV distance to Hart target marginal
         P = induced_random_battlefield_marginal(p_sym, actions, S=S)
-        P_list.append(P)
+        P_list.append(P)  # NEW
+
         tv.append(float(tv_distance(P, Q)))
 
     eps_avg = np.array(eps_avg)
@@ -94,30 +87,32 @@ def run_multiseed_scatter(A, actions, S, perm_classes, Q, T, seeds, outdir):
     plt.xlabel("Exploitability (symmetrised averages)")
     plt.ylabel("TV distance to Hart marginal")
     plt.title("TV distance to Hart across random seeds")
-    save_fig(outdir, "tv_vs_exploit_scatter.png")
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "tv_vs_exploit_scatter.png"), dpi=200)
+    plt.close()
 
     return {
         "eps_avg": eps_avg,
         "eps_sym": eps_sym,
         "tv": tv,
-        "P_list": P_list,
-        "seeds": list(seeds),
+        "P_list": P_list,  
+        "seeds": list(seeds)  
     }
 
 
 def multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_every=50, burn_frac=0.2):
     """
-    Median and IQR band across seeds for rescaled diagnostics:
-      blue_s(t)   = sqrt(t) * exploitability(pbar_t, qbar_t)
-      orange_s(t) = t * exploitability(pbar_t_sym, qbar_t_sym)
+    Median ± IQR band across seeds for rescaled convergence diagnostics:
+      blue_s(t)   = sqrt(t) * Exploit(p̄_t, q̄_t)
+      orange_s(t) = t * Exploit(p̄_t^sym, q̄_t^sym)
 
     Plot:
-      solid = median across seeds at each evaluation time
-      band  = IQR across seeds at each evaluation time
+      solid = median across seeds at each t
+      band  = IQR across seeds at each t
 
     Summary:
-      tail constants are computed per seed as the median over late evaluation times,
-      then reported as median and IQR across seeds.
+      tail constants are computed per seed (median over late times),
+      then we report median/IQR across seeds (so it matches the band idea).
     """
     n = len(actions)
     seeds = list(seeds)
@@ -133,7 +128,6 @@ def multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_eve
         res = regret_matching(A, T=T, seed=sd)
         p_hist, q_hist = res["p_hist"], res["q_hist"]
 
-        # cumulative sums let us form pbar_t and qbar_t quickly
         p_cum = np.cumsum(p_hist, axis=0)
         q_cum = np.cumsum(q_hist, axis=0)
 
@@ -160,22 +154,26 @@ def multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_eve
     blue_med, blue_q25, blue_q75 = band(blue)
     org_med, org_q25, org_q75 = band(orange)
 
+    # --- plot (matches definition: median ± IQR across seeds at each t) ---
     plt.figure()
-    plt.plot(x, blue_med, label="median sqrt(T)*Exploit (avg)")
+    plt.plot(x, blue_med, label="median √T·Exploit (avg)")
     plt.fill_between(x, blue_q25, blue_q75, alpha=0.25)
-    plt.plot(x, org_med, label="median T*Exploit (sym avg)")
+    plt.plot(x, org_med, label="median T·Exploit (sym avg)")
     plt.fill_between(x, org_q25, org_q75, alpha=0.25)
-    plt.title("Rescaled exploitability (median and IQR across seeds)")
+    plt.title("Rescaled exploitability (median ± IQR across seeds)")
     plt.xlabel("T")
     plt.ylabel("rescaled exploitability")
     plt.legend()
-    save_fig(outdir, "exploitability_rescaled_band.png")
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "exploitability_rescaled_band.png"), dpi=200)
+    plt.close()
 
+    # --- summaries that reflect the plot ---
     burn_k = int(burn_frac * m)
 
-    # per-seed tail constants: median over late evaluation times
+    # per-seed tail constants = median over late times
     blue_const_per_seed = np.median(blue[:, burn_k:], axis=1)
-    org_const_per_seed = np.median(orange[:, burn_k:], axis=1)
+    org_const_per_seed  = np.median(orange[:, burn_k:], axis=1)
 
     def seed_stats(v):
         return (
@@ -185,11 +183,11 @@ def multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_eve
         )
 
     blue_tail = seed_stats(blue_const_per_seed)
-    org_tail = seed_stats(org_const_per_seed)
+    org_tail  = seed_stats(org_const_per_seed)
 
-    # across-seed band at final evaluation time
+    # also useful: across-seed median/IQR at the final evaluation time
     blue_final = (float(blue_med[-1]), float(blue_q25[-1]), float(blue_q75[-1]))
-    org_final = (float(org_med[-1]), float(org_q25[-1]), float(org_q75[-1]))
+    org_final  = (float(org_med[-1]),  float(org_q25[-1]),  float(org_q75[-1]))
 
     return {
         "blue_tail": blue_tail,
@@ -198,9 +196,47 @@ def multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_eve
         "org_final": org_final,
     }
 
+def main(S=5, K=3, T=50000, outdir="figures", seed_main=0, seeds=None):
+    os.makedirs(outdir, exist_ok=True)
 
-def plot_single_seed_curves(outdir, x, eps_avg, eps_sym, vbar, vbar_sym, tv_hist):
-    """Save the single-seed diagnostic curves."""
+    actions, idx, A = make_game(S=S, K=K)
+    n = len(actions)
+
+    perm_classes = build_perm_classes(actions)
+    Q = hart_target_marginal_B553()
+
+    # Main single-seed run (curves over time)
+    res = regret_matching(A, T=T, seed=seed_main)
+    p_hist, q_hist = res["p_hist"], res["q_hist"]
+
+    x = np.arange(1, T + 1, dtype=int)
+    p_cum = np.cumsum(p_hist, axis=0)
+    q_cum = np.cumsum(q_hist, axis=0)
+
+    eps_avg = np.zeros(T)
+    eps_sym = np.zeros(T)
+    vbar = np.zeros(T)
+    vbar_sym = np.zeros(T) 
+    tv_hist = np.zeros(T)
+
+    for t_idx in range(T):
+        t = t_idx + 1
+        pbar = p_cum[t_idx] / t
+        qbar = q_cum[t_idx] / t
+
+        eps_avg[t_idx] = exploitability(pbar, qbar, A)[0]
+        vbar[t_idx] = value(pbar, qbar, A)
+
+        pbar_sym = symmetrise_with_classes(pbar, perm_classes, n)
+        qbar_sym = symmetrise_with_classes(qbar, perm_classes, n)
+        eps_sym[t_idx] = exploitability(pbar_sym, qbar_sym, A)[0]
+        vbar_sym[t_idx] = value(pbar_sym, qbar_sym, A)   # NEW
+
+        P = induced_random_battlefield_marginal(pbar_sym, actions, S=S)
+        tv_hist[t_idx] = tv_distance(P, Q)
+
+
+    # Plots: single-seed curves
     plt.figure()
     plt.plot(x, eps_avg, label="Exploitability (avg)")
     plt.plot(x, eps_sym, label="Exploitability (sym avg)")
@@ -208,7 +244,9 @@ def plot_single_seed_curves(outdir, x, eps_avg, eps_sym, vbar, vbar_sym, tv_hist
     plt.ylabel("Exploitability")
     plt.title("Exploitability vs T")
     plt.legend()
-    save_fig(outdir, "exploitability_vs_T.png")
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "exploitability_vs_T.png"), dpi=200)
+    plt.close()
 
     plt.figure()
     plt.plot(x, vbar, label="Value (avg strategies)")
@@ -218,99 +256,46 @@ def plot_single_seed_curves(outdir, x, eps_avg, eps_sym, vbar, vbar_sym, tv_hist
     plt.ylabel("Value")
     plt.title("Value vs T")
     plt.legend()
-    save_fig(outdir, "value_vs_T.png")
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "value_vs_T.png"), dpi=200)
+    plt.close()
 
     plt.figure()
     plt.plot(x, tv_hist)
     plt.xlabel("T")
     plt.ylabel("TV distance")
     plt.title("TV distance to Hart marginal vs T")
-    save_fig(outdir, "tv_vs_T.png")
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "tv_vs_T.png"), dpi=200)
+    plt.close()
 
+    # Plot: marginal bar at final T
+    pbar_T = p_cum[-1] / T
+    pbar_T_sym = symmetrise_with_classes(pbar_T, perm_classes, n)
+    P_learned = induced_random_battlefield_marginal(pbar_T_sym, actions, S=S)
 
-def plot_marginal_bar(outdir, S, P_learned, Q, filename, title):
-    """Save a side-by-side bar plot for learned marginal vs Hart target marginal."""
     tgrid = np.arange(S + 1)
     width = 0.38
 
     plt.figure()
     plt.bar(tgrid - width / 2, P_learned, width=width, label="Learned marginal (sym)")
-    plt.bar(tgrid + width / 2, Q, width=width, label="Hart marginal")
+    plt.bar(tgrid + width / 2, Q,        width=width, label="Hart marginal")
     plt.xticks(tgrid)
     plt.xlabel("Troops on a random battlefield")
     plt.ylabel("Probability")
-    plt.title(title)
+    plt.title("Learned marginal vs Hart target (final T)")
     plt.legend()
-    save_fig(outdir, filename)
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, "marginal_bar.png"), dpi=200)
+    plt.close()
 
-
-def main(S=5, K=3, T=50000, outdir="figures", seed_main=0, seeds=None):
-    os.makedirs(outdir, exist_ok=True)
-
-    # Build the game in matrix form
-    actions, idx, A = make_game(S=S, K=K)
-    n = len(actions)
-
-    # Permutation classes and Hart target marginal for (S,K)=(5,3)
-    perm_classes = build_perm_classes(actions)
-    Q = hart_target_marginal_B553()
-
-    # Single-seed run to produce curves over time
-    res = regret_matching(A, T=T, seed=seed_main)
-    p_hist, q_hist = res["p_hist"], res["q_hist"]
-
-    x = np.arange(1, T + 1, dtype=int)
-    p_cum = np.cumsum(p_hist, axis=0)
-    q_cum = np.cumsum(q_hist, axis=0)
-
-    eps_avg = np.zeros(T, dtype=float)
-    eps_sym = np.zeros(T, dtype=float)
-    vbar = np.zeros(T, dtype=float)
-    vbar_sym = np.zeros(T, dtype=float)
-    tv_hist = np.zeros(T, dtype=float)
-
-    # Evaluate diagnostics for each time t using time-averaged strategies
-    for t_idx in range(T):
-        t = t_idx + 1
-        pbar = p_cum[t_idx] / t
-        qbar = q_cum[t_idx] / t
-
-        eps_avg[t_idx] = float(exploitability(pbar, qbar, A)[0])
-        vbar[t_idx] = float(value(pbar, qbar, A))
-
-        pbar_sym = symmetrise_with_classes(pbar, perm_classes, n)
-        qbar_sym = symmetrise_with_classes(qbar, perm_classes, n)
-
-        eps_sym[t_idx] = float(exploitability(pbar_sym, qbar_sym, A)[0])
-        vbar_sym[t_idx] = float(value(pbar_sym, qbar_sym, A))
-
-        P = induced_random_battlefield_marginal(pbar_sym, actions, S=S)
-        tv_hist[t_idx] = float(tv_distance(P, Q))
-
-    # Save single-seed figures
-    plot_single_seed_curves(outdir, x, eps_avg, eps_sym, vbar, vbar_sym, tv_hist)
-
-    # Save marginal comparison at final time T
-    pbar_T = p_cum[-1] / T
-    pbar_T_sym = symmetrise_with_classes(pbar_T, perm_classes, n)
-    P_learned = induced_random_battlefield_marginal(pbar_T_sym, actions, S=S)
-    plot_marginal_bar(
-        outdir=outdir,
-        S=S,
-        P_learned=P_learned,
-        Q=Q,
-        filename="marginal_bar.png",
-        title="Learned marginal vs Hart target (final T)",
-    )
-
-    # Multi-seed diagnostics (optional, enabled when seeds is non-empty)
+    # Multi-seed diagnostics (optional)
     ms_stats = None
     band_stats = None
     if seeds:
         ms_stats = run_multiseed_scatter(A, actions, S, perm_classes, Q, T, seeds, outdir)
         band_stats = multiseed_rescaled_band(A, actions, perm_classes, T, seeds, outdir, eval_every=50)
 
-        # Best seed by TV distance: save an additional marginal plot
         best_i = int(np.argmin(ms_stats["tv"]))
         best_seed = ms_stats["seeds"][best_i]
         best_tv = float(ms_stats["tv"][best_i])
@@ -319,19 +304,16 @@ def main(S=5, K=3, T=50000, outdir="figures", seed_main=0, seeds=None):
         tgrid = np.arange(S + 1)
         width = 0.38
         plt.figure()
-        plt.bar(
-            tgrid - width / 2,
-            best_P,
-            width=width,
-            label=f"Learned marginal (sym), seed={best_seed}",
-        )
-        plt.bar(tgrid + width / 2, Q, width=width, label="Hart marginal")
+        plt.bar(tgrid - width / 2, best_P, width=width, label=f"Learned marginal (sym), seed={best_seed}")
+        plt.bar(tgrid + width / 2, Q,      width=width, label="Hart marginal")
         plt.xticks(tgrid)
         plt.xlabel("Troops on a random battlefield")
         plt.ylabel("Probability")
         plt.title(f"Learned marginal vs Hart (best TV seed, TV={best_tv:.4g})")
         plt.legend()
-        save_fig(outdir, "marginal_bar_best_tv.png")
+        plt.tight_layout()
+        plt.savefig(os.path.join(outdir, "marginal_bar_best_tv.png"), dpi=200)
+        plt.close()
 
     # Terminal output: report-ready summary only
     print(f"(S,K)=({S},{K}), |X|={n}, T={T}, seed_main={seed_main}")
@@ -339,7 +321,7 @@ def main(S=5, K=3, T=50000, outdir="figures", seed_main=0, seeds=None):
     print(f"  exploitability(avg)       = {float(eps_avg[-1]):.6g}")
     print(f"  exploitability(sym avg)   = {float(eps_sym[-1]):.6g}")
     print(f"  value(avg strategies)     = {float(vbar[-1]):.6g}")
-    print(f"  value(sym avg strategies) = {float(vbar_sym[-1]):.6g}")
+    print(f"  value(sym avg strategies) = {float(vbar_sym[-1]):.6g}")  # NEW
     print(f"  TV(sym marginal, Hart)    = {float(tv_hist[-1]):.6g}")
 
     if ms_stats is not None:
@@ -348,38 +330,27 @@ def main(S=5, K=3, T=50000, outdir="figures", seed_main=0, seeds=None):
         tv_min, tv_q25, tv_med, tv_q75, tv_max = qstats(ms_stats["tv"])
 
         print(f"Across seeds (n={len(seeds)}):")
-        print(
-            "  exploitability(avg):     "
-            f"median={avg_med:.6g}  IQR=[{avg_q25:.6g},{avg_q75:.6g}]  range=[{avg_min:.6g},{avg_max:.6g}]"
-        )
-        print(
-            "  exploitability(sym avg): "
-            f"median={sym_med:.6g}  IQR=[{sym_q25:.6g},{sym_q75:.6g}]  range=[{sym_min:.6g},{sym_max:.6g}]"
-        )
-        print(
-            "  TV-to-Hart (sym):        "
-            f"median={tv_med:.6g}   IQR=[{tv_q25:.6g},{tv_q75:.6g}]   range=[{tv_min:.6g},{tv_max:.6g}]"
-        )
-
+        print(f"  exploitability(avg):     median={avg_med:.6g}  IQR=[{avg_q25:.6g},{avg_q75:.6g}]  range=[{avg_min:.6g},{avg_max:.6g}]")
+        print(f"  exploitability(sym avg): median={sym_med:.6g}  IQR=[{sym_q25:.6g},{sym_q75:.6g}]  range=[{sym_min:.6g},{sym_max:.6g}]")
+        print(f"  TV-to-Hart (sym):        median={tv_med:.6g}   IQR=[{tv_q25:.6g},{tv_q75:.6g}]   range=[{tv_min:.6g},{tv_max:.6g}]")
         best_i = int(np.argmin(ms_stats["tv"]))
-        print(
-            f"  best-TV seed: {ms_stats['seeds'][best_i]}  TV={float(ms_stats['tv'][best_i]):.6g}  "
-            f"exploit(sym)={float(ms_stats['eps_sym'][best_i]):.6g}"
-        )
+        print(f"  best-TV seed: {ms_stats['seeds'][best_i]}  TV={float(ms_stats['tv'][best_i]):.6g}  "
+              f"exploit(sym)={float(ms_stats['eps_sym'][best_i]):.6g}")
         print(f"  saved: {outdir}/marginal_bar_best_tv.png")
-
+        
     if band_stats is not None:
         blue_med, blue_q25, blue_q75 = band_stats["blue_tail"]
         org_med, org_q25, org_q75 = band_stats["org_tail"]
         print("Rescaled tail constants (median with IQR across seeds):")
-        print(f"  sqrt(T)*exploitability(avg):    median={blue_med:.3g}  IQR=[{blue_q25:.3g},{blue_q75:.3g}]")
-        print(f"  T*exploitability(sym avg):      median={org_med:.3g}  IQR=[{org_q25:.3g},{org_q75:.3g}]")
+        print(f"  √T·exploitability(avg):      median={blue_med:.3g}  IQR=[{blue_q25:.3g},{blue_q75:.3g}]")
+        print(f"  T·exploitability(sym avg):   median={org_med:.3g}   IQR=[{org_q25:.3g},{org_q75:.3g}]")
 
+        # optional: also report the across-seed band at final T
         b_med, b_q25, b_q75 = band_stats["blue_final"]
         o_med, o_q25, o_q75 = band_stats["org_final"]
         print("Rescaled values at final T (median with IQR across seeds):")
-        print(f"  sqrt(T)*exploitability(avg):    median={b_med:.3g}  IQR=[{b_q25:.3g},{b_q75:.3g}]")
-        print(f"  T*exploitability(sym avg):      median={o_med:.3g}  IQR=[{o_q25:.3g},{o_q75:.3g}]")
+        print(f"  √T·exploitability(avg):      median={b_med:.3g}  IQR=[{b_q25:.3g},{b_q75:.3g}]")
+        print(f"  T·exploitability(sym avg):   median={o_med:.3g}  IQR=[{o_q25:.3g},{o_q75:.3g}]")
 
     print(f"Saved figures to: {outdir}/")
 
@@ -392,13 +363,8 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", type=str, default="figures")
     parser.add_argument("--seed_main", type=int, default=0)
     parser.add_argument("--nseeds", type=int, default=20)
-    parser.add_argument(
-        "--seeds",
-        type=int,
-        nargs="*",
-        default=None,
-        help="optional explicit list, e.g. --seeds 0 1 2 3",
-    )
+    parser.add_argument("--seeds", type=int, nargs="*", default=None,
+                        help="optional explicit list, e.g. --seeds 0 1 2 3")
 
     args = parser.parse_args()
     seeds = list(args.seeds) if args.seeds is not None else list(range(args.nseeds))
@@ -407,6 +373,6 @@ if __name__ == "__main__":
 
     # How to run:
     #   python run.py
-    #   python run.py --T 10000
-    #   python run.py --T 10000 --nseeds 50
-    #   python run.py --T 10000 --seeds 0 1 2 3 4
+    #   python run.py --T 5000
+    #   python run.py --T 5000 --nseeds 50
+    #   python run.py --T 5000 --seeds 0 1 2 3 4
