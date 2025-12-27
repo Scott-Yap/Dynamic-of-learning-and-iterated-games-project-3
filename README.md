@@ -8,6 +8,11 @@ The core goal is to:
 2. Measure convergence via **exploitability** and **value**.
 3. Compare the learned strategy (after symmetrisation) to the **Hart target random-battlefield marginal** for the specific case \((S,K)=(5,3)\).
 
+## References
+
+- Sergiu Hart, *Discrete Colonel Blotto and General Lotto games*.
+- Todd W. Neller and Marc Lanctot, *An Introduction to Counterfactual Regret Minimization*.
+
 ---
 
 ## Repo layout
