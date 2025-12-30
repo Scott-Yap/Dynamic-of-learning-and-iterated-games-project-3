@@ -408,5 +408,5 @@ if __name__ == "__main__":
     # How to run:
     #   python run.py
     #   python run.py --T 10000
-    #   python run.py --T 10000 --nseeds 50
+    #   python run.py --T 10000 --nseeds 50 (used in the project)
     #   python run.py --T 10000 --seeds 0 1 2 3 4
