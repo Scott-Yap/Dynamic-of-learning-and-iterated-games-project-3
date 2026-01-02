@@ -142,6 +142,31 @@ def hart_target_marginal_B553():
     # P[4]=P[5]=0
     return P
 
+def hart_candidate_strategy_B553(actions):
+    """
+    Construct a symmetric mixed strategy p_H over allocations for B(5,5;3) that induces
+    hart_target_marginal_B553() exactly.
+
+    For S=5, K=3, the marginal
+      P(0)=P(2)=1/6, P(1)=P(3)=1/3, P(4)=P(5)=0
+    is implemented by:
+      1/2 mass on the permutation class of (0,2,3),
+      1/2 mass on the permutation class of (1,1,3),
+      redistributed uniformly within each class.
+    """
+    n = len(actions)
+    p = np.zeros(n, dtype=float)
+
+    cls_023 = [i for i, x in enumerate(actions) if tuple(sorted(x)) == (0, 2, 3)]
+    cls_113 = [i for i, x in enumerate(actions) if tuple(sorted(x)) == (1, 1, 3)]
+
+    if len(cls_023) == 0 or len(cls_113) == 0:
+        raise ValueError("Expected actions to include permutations of (0,2,3) and (1,1,3).")
+
+    p[cls_023] = 0.5 / len(cls_023)
+    p[cls_113] = 0.5 / len(cls_113)
+    return p
+
 
 if __name__ == "__main__":
     # Test exploitability with rm.py + game.py + sym.py
@@ -167,3 +192,17 @@ if __name__ == "__main__":
     P = induced_random_battlefield_marginal(p_sym, actions, S=5)
     Q = hart_target_marginal_B553()
     print("TV(P, Q):", tv_distance(P, Q))
+
+     # --- Hart-marginal-induced strategy: exploitability check ---
+    p_hart = hart_candidate_strategy_B553(actions)
+    q_hart = p_hart.copy()
+
+    # sanity: does it induce Hart's target marginal?
+    P_hart = induced_random_battlefield_marginal(p_hart, actions, S=5)
+    Q_hart = hart_target_marginal_B553()
+    print("Hart-induced marginal P_hart:", P_hart)
+    print("TV(P_hart, Hart target):", tv_distance(P_hart, Q_hart))
+
+    eps, epsA, epsB, v = exploitability(p_hart, q_hart, A)
+    print("Hart-strategy exploitability (avg):", eps, "(epsA:", epsA, "epsB:", 
+          epsB, ")")
