@@ -180,6 +180,8 @@ if __name__ == "__main__":
     p_avg = res["p_avg"]
     print(p_avg)
     q_avg = res["q_avg"]
+    print(q_avg)
+    print(p_avg - q_avg)
 
     eps, epsA, epsB, v = exploitability(p_avg, q_avg, A)
     print("exploitability:", eps, "(epsA:", epsA, "epsB:", epsB, ") value:", v)

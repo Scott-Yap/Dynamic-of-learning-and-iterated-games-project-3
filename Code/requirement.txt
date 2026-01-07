@@ -7,4 +7,5 @@ scikit-learn
 pynndescent
 umap-learn
 pandas
+dash
 
